@@ -25,7 +25,7 @@ class WechatPay
     /** 支付接口基础地址 */
     const MCH_BASE_URL = 'https://api.mch.weixin.qq.com';
     /** 服务商接口 */
-    const MCH_SERVICE_URL = 'http://weixin.wepayer.com';
+    const MCH_SERVICE_URL = 'http://weixin.wepayer.com/createpay';
     /** 服务商鉴定sign地址 **/
     const MCH_SERVICE_SIGN_URL = 'http://weixin.wepayer.com/getnotify';
     
