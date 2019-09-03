@@ -9,7 +9,7 @@
 
 此`SDK`已历经数个线上项目验证与考验，可靠性与稳定性极高，欢迎`fork`或`star`此项目。
 
-#安装方法
+**安装方法**
 composer require emmetltd/wechat-pay-client
 
 **官方接口文档链接**
