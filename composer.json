@@ -1,0 +1,18 @@
+{
+  "type": "project",
+  "name": "emmetltd/wechat-pay-client",
+  "homepage": "https://github.com/emmtltd/wechat-pay-client",
+  "description": "WeChat Client development of SDK",
+  "license": "MIT",
+  "keywords": [
+    "wechat-pay-client"
+  ],
+  "require": {
+    "php": ">=5.3.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Wechat\\": "./Wechat"
+    }
+  }
+}
