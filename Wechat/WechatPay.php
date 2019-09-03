@@ -278,29 +278,11 @@ class WechatPay
             "notify_url"       => $notify_url,
             "trade_type"       => $trade_type,
             "spbill_create_ip" => Tools::getAddress(),
-            "sub_mch_id"       => $this->mch_id,
         );
         empty($openid) || $postdata['openid'] = $openid;
         empty($goods_tag) || $postdata['goods_tag'] = $goods_tag;
         is_null($no_credit) || $postdata['no_credit'] = $no_credit;
-        switch($trade_type){
-            case 'JSAPI':
-                $url = '/jsapi';
-            break;
-            case 'NATIVE':
-                $url = '/native';
-            break;
-            case 'APP':
-                $url = '/app';
-            break;
-			case 'MWEB':
-				$url = '/h5';
-            break;
-            default:
-                $url = '';
-        }
-        $result = Tools::httpPost( self::MCH_SERVICE_URL . $url,json_encode($postdata,JSON_UNESCAPED_UNICODE));
-        $result = json_decode($result,true);
+		$result = $this->getArrayResult($postdata, self::MCH_SERVICE_URL);
         if (false === $this->_parseResult($result)) {
             return false;
         }
@@ -332,8 +314,7 @@ class WechatPay
         );
         empty($goods_tag) || $postdata['goods_tag'] = $goods_tag;
         empty($openid) || $postdata['openid'] = $openid;
-        $result = Tools::httpPost( self::MCH_SERVICE_URL . '/app',json_encode($postdata,JSON_UNESCAPED_UNICODE));
-        $result = json_decode($result,true);
+		$result = $this->getArrayResult($postdata, self::MCH_SERVICE_URL);
         if (false === $this->_parseResult($result)){
             return false;
         }else{
