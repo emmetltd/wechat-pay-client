@@ -293,6 +293,9 @@ class WechatPay
             case 'APP':
                 $url = '/app';
             break;
+			case 'MWEB':
+				$url = '/h5';
+            break;
             default:
                 $url = '';
         }
