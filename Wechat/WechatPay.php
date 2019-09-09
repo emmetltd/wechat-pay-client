@@ -48,7 +48,10 @@ class WechatPay
     /** 执行错误消息及代码 */
     public $errMsg;
     public $errCode;
-
+    
+    /** 支付模式：mch-普通商户支付、service-服务商支付 **/
+    public $pay_type = 'mch';
+    
     /**
      * WechatPay constructor.
      * @param array $options
@@ -227,7 +230,12 @@ class WechatPay
         }
         $data = $notifyInfo;
         unset($data['sign']);
-        if ($notifyInfo['sign'] !== Tools::httpPost(self::MCH_SERVICE_SIGN_URL,json_encode($data,JSON_UNESCAPED_UNICODE))) {
+        if( isset($notifyInfo['sub_appid']) && isset($notifyInfo['sub_mch_id'])){
+            $sign = Tools::httpPost(self::MCH_SERVICE_SIGN_URL,json_encode($data,JSON_UNESCAPED_UNICODE));
+        }else{
+            $sign = Tools::getPaySign($data, $this->partnerKey);
+        }
+        if ($notifyInfo['sign'] !== $sign ) {
             Tools::log('Payment notification signature verification failed.' . var_export($notifyInfo, true), "ERR - {$this->appid}");
             $this->errCode = '403';
             $this->errMsg = 'Payment signature verification failed.';
@@ -268,7 +276,7 @@ class WechatPay
      * @param null $no_credit 是否禁止信用
      * @return bool|string
      */
-    public function getPrepayId($openid, $body, $out_trade_no, $total_fee, $notify_url, $trade_type = "JSAPI", $goods_tag = null, $fee_type = 'CNY', $no_credit = null)
+    public function getPrepayId($openid, $body, $out_trade_no, $total_fee, $notify_url, $trade_type = "JSAPI",$type='mch', $goods_tag = null, $fee_type = 'CNY', $no_credit = null)
     {
         $postdata = array(
             "body"             => $body,
@@ -279,10 +287,23 @@ class WechatPay
             "trade_type"       => $trade_type,
             "spbill_create_ip" => Tools::getAddress(),
         );
-        empty($openid) || $postdata['openid'] = $openid;
         empty($goods_tag) || $postdata['goods_tag'] = $goods_tag;
         is_null($no_credit) || $postdata['no_credit'] = $no_credit;
-		$result = $this->getArrayResult($postdata, self::MCH_SERVICE_URL);
+        if($type=='service'){
+            try {
+                empty($openid) || $postdata['sub_openid'] = $openid;
+                $result = $this->getArrayResult($postdata, self::MCH_SERVICE_URL);
+                $this->pay_type = 'service';
+            } catch (Exception $e) {
+                empty($openid) || $postdata['openid'] = $openid;
+                $result = $this->getArrayResult($postdata, self::MCH_BASE_URL . '/pay/unifiedorder');
+                $this->pay_type = 'mch';
+            }
+        }else{
+            empty($openid) || $postdata['openid'] = $openid;
+            $result = $this->getArrayResult($postdata, self::MCH_BASE_URL . '/pay/unifiedorder');
+            $this->pay_type = 'mch';
+        }
         if (false === $this->_parseResult($result)) {
             return false;
         }
@@ -301,7 +322,7 @@ class WechatPay
      * @param string $fee_type 交易币种
      * @return bool|string
      */
-    public function getAppPrepayId($openid, $body, $out_trade_no, $total_fee, $notify_url, $goods_tag = null, $fee_type = 'CNY')
+    public function getAppPrepayId($openid, $body, $out_trade_no, $total_fee, $notify_url, $type='mch',$goods_tag = null, $fee_type = 'CNY')
     {
         $postdata = array(
             "body"             => $body,
@@ -313,20 +334,38 @@ class WechatPay
             "spbill_create_ip" => Tools::getAddress()
         );
         empty($goods_tag) || $postdata['goods_tag'] = $goods_tag;
-        empty($openid) || $postdata['openid'] = $openid;
-		$result = $this->getArrayResult($postdata, self::MCH_SERVICE_URL);
+        
+        if($type=='service'){
+            try {
+                empty($openid) || $postdata['sub_openid'] = $openid;
+                $result = $this->getArrayResult($postdata, self::MCH_SERVICE_URL);
+                $this->pay_type = 'service';
+            } catch (Exception $e) {
+                empty($openid) || $postdata['openid'] = $openid;
+                $result = $this->getArrayResult($postdata, self::MCH_BASE_URL . '/pay/unifiedorder');
+                $this->pay_type = 'mch';
+            }
+        }else{
+            empty($openid) || $postdata['openid'] = $openid;
+            $result = $this->getArrayResult($postdata, self::MCH_BASE_URL . '/pay/unifiedorder');
+            $this->pay_type = 'mch';
+        }
         if (false === $this->_parseResult($result)){
             return false;
         }else{
             $data = [
-            "appid"     => $result['appid'],
-            "noncestr"  => $result['nonce_str'],
-            "package"   => "Sign=WXPay",
-            "partnerid" => $this->config['mch_id'],
-            "prepayid"  => $result['prepay_id'],
-            "timestamp" => time(),
+                "appid"     => $result['appid'],
+                "noncestr"  => $result['nonce_str'],
+                "package"   => "Sign=WXPay",
+                "partnerid" => $this->config['mch_id'],
+                "prepayid"  => $result['prepay_id'],
+                "timestamp" => time(),
             ];
-            $data['sign'] = Tools::getPaySign($data, $this->partnerKey);
+            if($this->pay_type=='service'){
+                $data['sign'] = Tools::httpPost(self::MCH_SERVICE_SIGN_URL,json_encode($data,JSON_UNESCAPED_UNICODE));
+            }else{
+                $data['sign'] = Tools::getPaySign($data, $this->partnerKey);
+            }
             return $data;
         }
     }
@@ -376,7 +415,11 @@ class WechatPay
             'nonce_str'  => Tools::createNoncestr(),
             'product_id' => (string)$product_id,
         );
-        $data['sign'] = Tools::getPaySign($data, $this->partnerKey);
+        if($this->pay_type=='service'){
+            $data['sign'] = Tools::httpPost(self::MCH_SERVICE_SIGN_URL,json_encode($option,JSON_UNESCAPED_UNICODE));
+        }else{
+            $data['sign'] = Tools::getPaySign($data, $this->partnerKey);
+        }
         return "weixin://wxpay/bizpayurl?" . http_build_query($data);
     }
 
@@ -394,7 +437,12 @@ class WechatPay
         $option["nonceStr"] = Tools::createNoncestr();
         $option["package"] = "prepay_id={$prepay_id}";
         $option["signType"] = "MD5";
-        $option["paySign"] = Tools::getPaySign($option, $this->partnerKey);
+        if($this->pay_type=='service'){
+            $option['paySign'] = Tools::httpPost(self::MCH_SERVICE_SIGN_URL,json_encode($option,JSON_UNESCAPED_UNICODE));
+        }else{
+            $option["paySign"] = Tools::getPaySign($option, $this->partnerKey);
+        }
+        
         $option['timestamp'] = $option['timeStamp'];
         return $option;
     }
